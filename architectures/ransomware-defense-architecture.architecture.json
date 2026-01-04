@@ -1,0 +1,281 @@
+{
+  "$schema": "https://calm.finos.org/release/1.1/meta/calm.json",
+  "unique-id": "ransomware-defense-architecture",
+  "name": "Ransomware Defense Architecture",
+  "description": "A cybersecurity system designed to detect, alert, and respond to ransomware activity in real-time. The system ingests telemetry from endpoints and servers, analyzes behavior for suspicious patterns, triggers alerts, and executes containment and remediation workflows.",
+  "metadata": [
+    {
+      "version": "0.1.0",
+      "owner": "Security Architecture Team",
+      "environment": "production",
+      "created": "2026-01-04T00:00:00Z",
+      "review-cycle": "monthly"
+    }
+  ],
+  "nodes": [
+    {
+      "unique-id": "endpoint-collector",
+      "node-type": "service",
+      "name": "Endpoint Telemetry Collector",
+      "description": "Lightweight agent or aggregator that collects file-system, process, and EDR telemetry from endpoints.",
+      "interfaces": [
+        {
+          "unique-id": "endpoint-collector-api",
+          "url": "https://collector.local/api/v1/ingest"
+        }
+      ]
+    },
+    {
+      "unique-id": "server-collector",
+      "node-type": "service",
+      "name": "Server Telemetry Collector",
+      "description": "Collection agents for servers and infrastructure producing logs, process, and file-event telemetry.",
+      "interfaces": [
+        {
+          "unique-id": "server-collector-api",
+          "url": "https://collector.local/api/v1/ingest"
+        }
+      ]
+    },
+    {
+      "unique-id": "message-bus",
+      "node-type": "system",
+      "name": "Telemetry Message Bus",
+      "description": "Durable, high-throughput event stream (e.g., Kafka) used to buffer and route telemetry to downstream processors.",
+      "interfaces": [
+        {
+          "unique-id": "kafka-topic",
+          "host": "kafka.internal.local",
+          "port": 9092
+        }
+      ]
+    },
+    {
+      "unique-id": "telemetry-store",
+      "node-type": "database",
+      "name": "Long-term Telemetry Store",
+      "description": "Cold/warm storage for indexed telemetry and artifacts for forensic analysis.",
+      "interfaces": [
+        {
+          "unique-id": "object-storage",
+          "url": "s3://telemetry-archive"
+        }
+      ]
+    },
+    {
+      "unique-id": "analytics-engine",
+      "node-type": "service",
+      "name": "Analytics & Detection Engine",
+      "description": "Real-time stream analytics and ML-based detectors that score telemetry for ransomware indicators.",
+      "interfaces": [
+        {
+          "unique-id": "analytics-api",
+          "url": "https://analytics.internal.local/score"
+        }
+      ]
+    },
+    {
+      "unique-id": "siem",
+      "node-type": "system",
+      "name": "SIEM / Correlation Platform",
+      "description": "Centralized correlation, enrichment, alerting and investigative tooling.",
+      "interfaces": [
+        { "unique-id": "siem-ingest", "url": "https://siem.internal.local/ingest" }
+      ]
+    },
+    {
+      "unique-id": "alerting-service",
+      "node-type": "service",
+      "name": "Alerting & Notification Service",
+      "description": "Generates actionable alerts, notifies SOC, and triggers automated playbooks.",
+      "interfaces": [
+        { "unique-id": "alert-webhook", "url": "https://alerting.internal.local/webhook" }
+      ]
+    },
+    {
+      "unique-id": "response-orchestrator",
+      "node-type": "service",
+      "name": "Response Orchestrator",
+      "description": "Orchestrates containment workflows (isolation, process kill, credential rotation) and coordinates with ticketing systems.",
+      "interfaces": [
+        { "unique-id": "orchestrator-api", "url": "https://orchestrator.internal.local/api/v1/run" }
+      ]
+    },
+    {
+      "unique-id": "isolation-service",
+      "node-type": "service",
+      "name": "Containment / Isolation Service",
+      "description": "Implements network isolation and host quarantine actions via endpoint management APIs.",
+      "interfaces": [
+        { "unique-id": "isolation-api", "url": "https://isolation.internal.local/api/v1/action" }
+      ]
+    },
+    {
+      "unique-id": "reporting-dashboard",
+      "node-type": "webclient",
+      "name": "Operational Dashboard & Reports",
+      "description": "Dashboards for SOC and management showing incidents, metrics, and post-incident reports.",
+      "interfaces": [
+        { "unique-id": "dashboard-url", "url": "https://dashboard.internal.local" }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "unique-id": "endpoints-to-message-bus",
+      "description": "Endpoint and server collectors publish telemetry to the message bus",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "endpoint-collector", "interfaces": ["endpoint-collector-api"] },
+          "destination": { "node": "message-bus", "interfaces": ["kafka-topic"] }
+        }
+      }
+    },
+    {
+      "unique-id": "servers-to-message-bus",
+      "description": "Server collectors publish telemetry to the message bus",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "server-collector", "interfaces": ["server-collector-api"] },
+          "destination": { "node": "message-bus", "interfaces": ["kafka-topic"] }
+        }
+      }
+    },
+    {
+      "unique-id": "message-bus-to-analytics",
+      "description": "Analytics engine consumes telemetry from the message bus",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "message-bus", "interfaces": ["kafka-topic"] },
+          "destination": { "node": "analytics-engine", "interfaces": ["analytics-api"] }
+        }
+      }
+    },
+    {
+      "unique-id": "analytics-to-siem",
+      "description": "Detections and enriched events forwarded to SIEM",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "analytics-engine", "interfaces": ["analytics-api"] },
+          "destination": { "node": "siem", "interfaces": ["siem-ingest"] }
+        }
+      },
+      "protocol": "HTTPS"
+    },
+    {
+      "unique-id": "analytics-to-storage",
+      "description": "Evidence and artifacts stored in long-term telemetry store",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "analytics-engine" },
+          "destination": { "node": "telemetry-store", "interfaces": ["object-storage"] }
+        }
+      }
+    },
+    {
+      "unique-id": "siem-to-alerting",
+      "description": "SIEM triggers alerts to the alerting service",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "siem", "interfaces": ["siem-ingest"] },
+          "destination": { "node": "alerting-service", "interfaces": ["alert-webhook"] }
+        }
+      }
+    },
+    {
+      "unique-id": "alerting-to-orchestrator",
+      "description": "Alerts invoke automated playbooks on the response orchestrator",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "alerting-service", "interfaces": ["alert-webhook"] },
+          "destination": { "node": "response-orchestrator", "interfaces": ["orchestrator-api"] }
+        }
+      }
+    },
+    {
+      "unique-id": "orchestrator-to-isolation",
+      "description": "Orchestrator calls containment actions on the isolation service",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "response-orchestrator", "interfaces": ["orchestrator-api"] },
+          "destination": { "node": "isolation-service", "interfaces": ["isolation-api"] }
+        }
+      }
+    },
+    {
+      "unique-id": "siem-to-reporting",
+      "description": "SIEM provides incidents and metrics to reporting dashboard",
+      "relationship-type": {
+        "connects": {
+          "source": { "node": "siem" },
+          "destination": { "node": "reporting-dashboard", "interfaces": ["dashboard-url"] }
+        }
+      }
+    }
+  ],
+  "flows": [
+    {
+      "unique-id": "telemetry-ingestion-flow",
+      "name": "Telemetry Ingestion & Detection",
+      "description": "Collection, buffering, analytics scoring, and storage of telemetry for detection and forensic purposes.",
+      "transitions": [
+        { "relationship-unique-id": "endpoints-to-message-bus", "sequence-number": 1, "description": "Collectors publish telemetry to the message bus" },
+        { "relationship-unique-id": "message-bus-to-analytics", "sequence-number": 2, "description": "Analytics engine consumes and scores events" },
+        { "relationship-unique-id": "analytics-to-siem", "sequence-number": 3, "description": "Detections sent to SIEM for correlation" },
+        { "relationship-unique-id": "analytics-to-storage", "sequence-number": 4, "description": "Store artifacts and evidence in telemetry archive" }
+      ]
+    },
+    {
+      "unique-id": "incident-response-flow",
+      "name": "Automated Incident Response",
+      "description": "Alert generation, orchestration of containment, and tracking through reporting and ticketing.",
+      "transitions": [
+        { "relationship-unique-id": "analytics-to-siem", "sequence-number": 1, "description": "SIEM receives detection and correlates incidents" },
+        { "relationship-unique-id": "siem-to-alerting", "sequence-number": 2, "description": "SIEM issues alert to alerting service" },
+        { "relationship-unique-id": "alerting-to-orchestrator", "sequence-number": 3, "description": "Alerting invokes automated playbook on orchestrator" },
+        { "relationship-unique-id": "orchestrator-to-isolation", "sequence-number": 4, "description": "Orchestrator requests host isolation/quarantine" }
+      ]
+    }
+  ],
+  "controls": {
+    "data-encryption": {
+      "description": "Telemetry and artifacts must be encrypted at rest and in transit.",
+      "requirements": [
+        {
+          "requirement-url": "https://schemas.example.com/security/encryption-requirement.json",
+          "config": {
+            "in-transit": "TLS1.3",
+            "at-rest": "AES-256",
+            "key-management": "KMS/HSM"
+          }
+        }
+      ]
+    },
+    "audit-logging": {
+      "description": "All detection, alerting, and response actions must be auditable and retained for forensics.",
+      "requirements": [
+        {
+          "requirement-url": "https://schemas.example.com/compliance/audit-logging.json",
+          "config": {
+            "retention-days": 365,
+            "immutable-archives": true,
+            "audit-events": ["detection", "alert", "action-executed", "user-ack"]
+          }
+        }
+      ]
+    },
+    "incident-response-playbooks": {
+      "description": "Playbooks for ranked ransomware incidents and automatic containment thresholds.",
+      "requirements": [
+        {
+          "requirement-url": "https://schemas.example.com/security/incident-response.json",
+          "config": {
+            "playbook-versions": ["1.0"],
+            "auto-contain-threshold": "score>=90",
+            "human-approval-threshold": "score>=70 and <90"
+          }
+        }
+      ]
+    }
+  }
+}

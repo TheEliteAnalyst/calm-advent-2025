@@ -19,7 +19,7 @@ Each day, I complete a small architectural modeling task, document it, and commi
 | Day | Challenge Title | Status | Link |
 |-----|------------------|--------|------|
 | 1   | Install CALM CLI & Initialize Repo | ✅ Complete | [Day 1](advent/day-01/) |
-| 2   | _TBD_ | ⏳ Pending | [Day 2](advent/day-02/) |
+| 2   | Define initial architecture and create first system node| ✅ Complete| [Day 2](advent/day-02/) |
 | 3   | _TBD_ | ⏳ Pending | [Day 3](advent/day-03/) |
 | …   | _More Coming Soon_ | 🔜 | - |
 
