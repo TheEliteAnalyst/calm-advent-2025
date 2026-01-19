@@ -118,6 +118,12 @@
       "interfaces": [
         { "unique-id": "dashboard-url", "url": "https://dashboard.internal.local" }
       ]
+    },
+    {
+    "unique-id": "security-analyst",
+    "node-type": "actor",
+    "name": "Security Analyst",
+    "description": "Human operator in the SOC who reviews detections and investigates incidents."
     }
   ],
   "relationships": [
@@ -211,6 +217,16 @@
           "destination": { "node": "reporting-dashboard", "interfaces": ["dashboard-url"] }
         }
       }
+    },
+    {
+    "unique-id": "analyst-to-dashboard",
+    "relationship-type": {
+        "interacts": {
+        "actor": "security-analyst",
+        "nodes": ["reporting-dashboard"]
+        }
+    },
+    "description": "Security analyst reviews incidents and metrics via the dashboard."
     }
   ],
   "flows": [
